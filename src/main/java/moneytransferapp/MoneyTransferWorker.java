@@ -4,6 +4,9 @@ import io.temporal.client.WorkflowClient;
 import io.temporal.serviceclient.WorkflowServiceStubs;
 import io.temporal.worker.Worker;
 import io.temporal.worker.WorkerFactory;
+import io.temporal.worker.WorkflowImplementationOptions;
+import moneytransferapp.exceptions.AccountNotFoundException;
+import moneytransferapp.exceptions.MoneyTransferWorkFlowException;
 
 // @@@SNIPSTART money-transfer-project-template-java-worker
 public class MoneyTransferWorker {
@@ -18,7 +21,10 @@ public class MoneyTransferWorker {
         Worker worker = factory.newWorker(Shared.MONEY_TRANSFER_TASK_QUEUE);
         // This Worker hosts both Workflow and Activity implementations.
         // Workflows are stateful so a type is needed to create instances.
-        worker.registerWorkflowImplementationTypes(MoneyTransferWorkflowImpl.class);
+        worker.registerWorkflowImplementationTypes(WorkflowImplementationOptions.newBuilder()
+                        .setFailWorkflowExceptionTypes(MoneyTransferWorkFlowException.class)
+                .build(),MoneyTransferWorkflowImpl.class);
+        worker.registerWorkflowImplementationTypes(CheckBalanceWorkFlowImpl.class);
         // Activities are stateless and thread safe so a shared instance is used.
         worker.registerActivitiesImplementations(new AccountActivityImpl());
         // Start listening to the Task Queue.

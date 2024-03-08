@@ -24,12 +24,12 @@ public class InitiateMoneyTransfer {
         // WorkflowStubs enable calls to methods as if the Workflow object is local, but actually perform an RPC.
         MoneyTransferWorkflow workflow = client.newWorkflowStub(MoneyTransferWorkflow.class, options);
         String referenceId = UUID.randomUUID().toString();
-        String fromAccount = "001-001";
-        String toAccount = "002-002";
-        double amount = 18.74;
+        String fromAccount = "A";
+        String toAccount = "B";
+        int amount = 10;
         // Asynchronous execution. This process will exit after making this call.
         WorkflowExecution we = WorkflowClient.start(workflow::transfer, fromAccount, toAccount, referenceId, amount);
-        System.out.printf("\nTransfer of $%f from account %s to account %s is processing\n", amount, fromAccount, toAccount);
+        System.out.printf("\nTransfer of %d from account %s to account %s is processing\n", amount, fromAccount, toAccount);
         System.out.printf("\nWorkflowID: %s RunID: %s", we.getWorkflowId(), we.getRunId());
         System.exit(0);
     }

@@ -9,9 +9,15 @@ import io.temporal.activity.ActivityMethod;
 public interface AccountActivity {
 
     @ActivityMethod
-    void deposit(String accountId, String referenceId, double amount);
+    void deposit(String accountId, String referenceId, int amount);
 
     @ActivityMethod
-    void withdraw(String accountId, String referenceId, double amount);
+    void withdraw(String accountId, String referenceId, int amount);
+
+    @ActivityMethod(name = "revert")
+    void revertTransfer(String accountId, String referenceId, int amount);
+
+    @ActivityMethod
+    String checkBalance(String accountId);
 }
 // @@@SNIPEND
