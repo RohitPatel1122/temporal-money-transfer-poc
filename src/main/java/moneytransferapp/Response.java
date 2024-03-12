@@ -1,11 +1,12 @@
 package moneytransferapp;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class Response {
-  @JsonProperty("accountId")
-  private String accountId ;
+  @JsonProperty("account")
+  private Account account ;
   @JsonProperty("message")
   private String message;
   @JsonProperty("transactionId")
@@ -14,7 +15,7 @@ public class Response {
   @Override
   public String toString() {
     return "Response{" +
-            "accountId='" + accountId + '\'' +
+            "account=" + account +
             ", message='" + message + '\'' +
             ", transactionId='" + transactionId + '\'' +
             '}';
@@ -28,12 +29,12 @@ public class Response {
     this.transactionId = transactionId;
   }
 
-  public String getAccountId() {
-    return accountId;
+  public Account getAccount() {
+    return account;
   }
 
-  public void setAccountId(String accountId) {
-    this.accountId = accountId;
+  public void setAccount(Account account) {
+    this.account = account;
   }
 
   public String getMessage() {

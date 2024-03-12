@@ -2,7 +2,9 @@ package moneytransferapp;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.temporal.activity.Activity;
 import io.temporal.failure.ApplicationFailure;
+import io.temporal.workflow.Workflow;
 import moneytransferapp.exceptions.AccountNotFoundException;
 import moneytransferapp.exceptions.InsufficientBalance;
 
@@ -22,10 +24,11 @@ public class AccountActivityImpl implements AccountActivity {
             "\nWithdrawing %d from account %s. ReferenceId: %s\n",
             amount, accountId, referenceId
     );
-
+    String activityType = Activity.getExecutionContext().getInfo().getActivityType();
+    System.out.println(referenceId + activityType);
+    String txnId = referenceId + activityType;
     HttpClient client = HttpClient.newBuilder()
             .build();
-    String txnId = referenceId ;
     HttpRequest httpRequest = HttpRequest.newBuilder()
             .uri(URI.create("http://localhost:9000/" + accountId + "/withdraw/" + amount + "?die=false&delay=0"))
             .setHeader("transactionId", txnId)
@@ -43,6 +46,12 @@ public class AccountActivityImpl implements AccountActivity {
       System.err.println("General Exception Withdraw:" + e.getMessage());
 
     }
+    if (httpResponse.statusCode() == 404) {
+      throw  new AccountNotFoundException("account not found");
+    }
+    if (httpResponse.statusCode() == 400) {
+      throw  new InsufficientBalance("InsufficientBalance");
+    }
     ObjectMapper mapper = new ObjectMapper();
     Response response = null;
     try {
@@ -51,20 +60,15 @@ public class AccountActivityImpl implements AccountActivity {
     } catch (JsonProcessingException e) {
       throw new RuntimeException(e);
     }
-    //DO not retry/continue in case Account not found
 
-    if (httpResponse.statusCode() == 404) {
-      throw  new AccountNotFoundException("account not found");
-    }
-    if (httpResponse.statusCode() == 400) {
-      throw  new InsufficientBalance(response.getMessage());
-    }
     System.out.println(txnId + " || Withdraw response status code: " + httpResponse.statusCode()
             + " body:" + httpResponse.body());
   }
 
   @Override
   public void revertTransfer(String accountId, String referenceId, int amount) {
+    //TO test revert fail case
+    accountId= "c";
     System.out.printf(
             "\nReverting fund  %d to account %s. ReferenceId: %s\n",
             amount, accountId, referenceId
@@ -111,7 +115,9 @@ public class AccountActivityImpl implements AccountActivity {
 
     HttpClient client = HttpClient.newBuilder()
             .build();
-    String txnId = referenceId ;
+            String activityTYpe= Activity.getExecutionContext().getInfo().getActivityType();
+    System.out.println(referenceId + activityTYpe);
+    String txnId = referenceId + activityTYpe;
     HttpRequest httpRequest = HttpRequest.newBuilder()
             .uri(URI.create("http://localhost:9000/" + accountId + "/deposit/" + amount + "?die=false&delay=0"))
             .setHeader("transactionId", txnId)
@@ -129,8 +135,17 @@ public class AccountActivityImpl implements AccountActivity {
     } catch (Exception e) {
       System.err.println("Exception Deposit:" + e.getMessage());
     }
-
+    if (httpResponse.statusCode() == 404) {
+      throw  new AccountNotFoundException("account not found");
+    }
+    if (httpResponse.statusCode() == 400) {
+      throw  new InsufficientBalance("InsufficientBalance");
+    }
+    if (httpResponse.statusCode() == 409) {
+      throw  new AccountNotFoundException("this transaction is already executed");
+    }
     ObjectMapper mapper = new ObjectMapper();
+
     Response response = null;
     try {
       response = mapper.readValue(httpResponse.body(), Response.class);
@@ -138,14 +153,6 @@ public class AccountActivityImpl implements AccountActivity {
     } catch (JsonProcessingException e) {
       throw new RuntimeException(e);
     }
-    if (httpResponse.statusCode() == 404) {
-      throw  new AccountNotFoundException("account not found");
-    }
-    if (httpResponse.statusCode() == 400) {
-      throw  new InsufficientBalance(response.getMessage());
-    }
-
-
     System.out.println(txnId + "|| Deposit response status code: " + httpResponse.statusCode()
             + " body:" + httpResponse.body()
     );

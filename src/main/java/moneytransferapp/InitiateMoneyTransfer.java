@@ -2,9 +2,12 @@ package moneytransferapp;
 
 import io.temporal.api.common.v1.WorkflowExecution;
 import io.temporal.client.WorkflowClient;
+import io.temporal.client.WorkflowException;
 import io.temporal.client.WorkflowOptions;
+import io.temporal.failure.ApplicationFailure;
 import io.temporal.serviceclient.WorkflowServiceStubs;
 
+import java.time.Duration;
 import java.util.UUID;
 
 // @@@SNIPSTART money-transfer-project-template-java-workflow-initiator
@@ -18,6 +21,7 @@ public class InitiateMoneyTransfer {
                 .setTaskQueue(Shared.MONEY_TRANSFER_TASK_QUEUE)
                 // A WorkflowId prevents this it from having duplicate instances, remove it to duplicate.
                 .setWorkflowId("money-transfer-workflow")
+                .setWorkflowExecutionTimeout(Duration.ofMinutes(3))
                 .build();
         // WorkflowClient can be used to start, signal, query, cancel, and terminate Workflows.
         WorkflowClient client = WorkflowClient.newInstance(service);
@@ -25,12 +29,14 @@ public class InitiateMoneyTransfer {
         MoneyTransferWorkflow workflow = client.newWorkflowStub(MoneyTransferWorkflow.class, options);
         String referenceId = UUID.randomUUID().toString();
         String fromAccount = "A";
-        String toAccount = "B";
+        String toAccount = "B1";
         int amount = 10;
         // Asynchronous execution. This process will exit after making this call.
+
         WorkflowExecution we = WorkflowClient.start(workflow::transfer, fromAccount, toAccount, referenceId, amount);
-        System.out.printf("\nTransfer of %d from account %s to account %s is processing\n", amount, fromAccount, toAccount);
-        System.out.printf("\nWorkflowID: %s RunID: %s", we.getWorkflowId(), we.getRunId());
+            System.out.printf("\nTransfer of %d from account %s to account %s is processing\n", amount, fromAccount, toAccount);
+            System.out.printf("\nWorkflowID: %s RunID: %s", we.getWorkflowId(), we.getRunId());
+
         System.exit(0);
     }
 }

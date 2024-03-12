@@ -3,6 +3,9 @@ package moneytransferapp;
 import io.temporal.activity.ActivityOptions;
 import io.temporal.common.RetryOptions;
 import io.temporal.failure.ActivityFailure;
+import io.temporal.failure.ApplicationFailure;
+import io.temporal.failure.TimeoutFailure;
+import io.temporal.workflow.Saga;
 import io.temporal.workflow.Workflow;
 import moneytransferapp.exceptions.AccountNotFoundException;
 import moneytransferapp.exceptions.InsufficientBalance;
@@ -31,7 +34,6 @@ public class MoneyTransferWorkflowImpl implements MoneyTransferWorkflow {
           // Temporal retries failures by default, this is simply an example.
           .setRetryOptions(retryoptions)
           .build();
-
   // ActivityStubs enable calls to methods as if the Activity object is local, but actually perform an RPC.
   private final Map<String, ActivityOptions> perActivityMethodOptions = new HashMap<String, ActivityOptions>() {{
     put(WITHDRAW, ActivityOptions.newBuilder().setRetryOptions(RetryOptions.newBuilder()
@@ -59,17 +61,53 @@ public class MoneyTransferWorkflowImpl implements MoneyTransferWorkflow {
   // Activity method executions can be orchestrated here or from within other Activity methods.
   @Override
   public void transfer(String fromAccountId, String toAccountId, String referenceId, int amount) {
-    account.withdraw(fromAccountId, referenceId, amount);
+    // Configure SAGA to run compensation activities in parallel
+    Saga.Options sagaOptions = new Saga.Options.Builder().setParallelCompensation(false).build();
+    Saga saga = new Saga(sagaOptions);
     try {
-      account.deposit(toAccountId, referenceId, amount);
+      account.withdraw(fromAccountId, Workflow.getInfo().getFirstExecutionRunId(), amount);
+      saga.addCompensation(account::revertTransfer, fromAccountId, Workflow.getInfo().getFirstExecutionRunId(), amount);
+
     } catch (ActivityFailure activityFailure) {
-      System.err.println("Error while deposit:" + activityFailure.getCause().getMessage());
-      //TODO: revert in case of specifc activity failure case
-      account.revertTransfer(fromAccountId, referenceId, amount);
+      System.err.println("Error while withdraw:" + activityFailure.getCause().getMessage());
       //will cause the work flow to fail, with given reason
       //we have added this as setFailWorkflowExceptionTypes in worker
-      throw new MoneyTransferWorkFlowException(activityFailure.getCause().getMessage());
+      handleFailure(activityFailure);
+    }
+    try {
+      account.deposit(toAccountId, Workflow.getInfo().getFirstExecutionRunId(), amount);
+    } catch (ActivityFailure activityFailure) {
+      System.err.println("Error while deposit:" + activityFailure.getCause().getMessage());
+      //if account not found, then compensate
+      if (((ApplicationFailure)activityFailure.getCause()).getType().equalsIgnoreCase( AccountNotFoundException.class.getName())) {
+        handleCompensation(saga, activityFailure);
+      }
+      //else, for timeout set workflow to timeout.
+      handleFailure(activityFailure);
     }
   }
+
+  private void handleCompensation(Saga saga, ActivityFailure activityFailure) {
+    try {
+      System.out.println("Compensation starting.");
+      saga.compensate();
+      System.out.println("Compensation done.");
+      throw new MoneyTransferWorkFlowException(activityFailure.getCause().getMessage());
+    } catch (Saga.CompensationException  | ActivityFailure exception) {
+      System.err.println("Error in handleCompensation" + exception.getMessage() + exception.getCause() + exception.getClass());
+      //This is hack, possibly better way to do this
+      Workflow.sleep(Duration.ofMinutes(3));
+    }
+  }
+
+  private void handleFailure(ActivityFailure activityFailure) {
+    if (activityFailure.getCause().getClass() != TimeoutFailure.class) {
+      throw new MoneyTransferWorkFlowException(activityFailure.getCause().getMessage());
+    }
+    System.out.println("Failed due to timeout errors. We should set to timout status");
+    //This is hack, possibly there are better way to do this
+    Workflow.sleep(Duration.ofMinutes(3));
+  }
+
 }
 // @@@SNIPEND
