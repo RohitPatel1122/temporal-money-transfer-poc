@@ -3,8 +3,6 @@ package moneytransferapp;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.temporal.activity.Activity;
-import io.temporal.failure.ApplicationFailure;
-import io.temporal.workflow.Workflow;
 import moneytransferapp.exceptions.AccountNotFoundException;
 import moneytransferapp.exceptions.InsufficientBalance;
 
@@ -68,7 +66,7 @@ public class AccountActivityImpl implements AccountActivity {
   @Override
   public void revertTransfer(String accountId, String referenceId, int amount) {
     //TO test revert fail case
-    accountId= "c";
+//    accountId= "c";
     System.out.printf(
             "\nReverting fund  %d to account %s. ReferenceId: %s\n",
             amount, accountId, referenceId
